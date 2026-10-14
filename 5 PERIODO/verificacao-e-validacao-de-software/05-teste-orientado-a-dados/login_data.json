@@ -1,0 +1,37 @@
+[
+  {
+    "id": "DD01",
+    "description": "Login valido",
+    "username": "Admin",
+    "password": "admin123",
+    "expected": "success"
+  },
+  {
+    "id": "DD02",
+    "description": "Senha incorreta",
+    "username": "Admin",
+    "password": "senhaErrada123",
+    "expected": "failure"
+  },
+  {
+    "id": "DD03",
+    "description": "Usuario inexistente",
+    "username": "UsuarioInexistente",
+    "password": "admin123",
+    "expected": "failure"
+  },
+  {
+    "id": "DD04",
+    "description": "Usuario vazio",
+    "username": "",
+    "password": "admin123",
+    "expected": "failure"
+  },
+  {
+    "id": "DD05",
+    "description": "Senha vazia",
+    "username": "Admin",
+    "password": "",
+    "expected": "failure"
+  }
+]

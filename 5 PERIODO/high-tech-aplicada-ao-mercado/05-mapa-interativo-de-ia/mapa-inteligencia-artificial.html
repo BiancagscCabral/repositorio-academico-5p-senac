@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Inteligência Artificial — mapa interativo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#131A24;
+  --ink-2:#54627A;
+  --ink-3:#8A97AB;
+  --paper:#FBFCFD;
+  --grid:#E7ECF3;
+  --grid-strong:#DCE3EC;
+  --line:#BFCBDA;
+  --card:#FFFFFF;
+  --edge:#DDE4ED;
+  --shadow:0 1px 2px rgba(19,26,36,.06), 0 6px 18px rgba(19,26,36,.06);
+  --c0:#3552CC; --c1:#0F8B6C; --c2:#C2410C; --c3:#8B2FB8;
+  --c4:#0E7C99; --c5:#B0243B; --c6:#5B7C0A; --c7:#B4690E;
+  --display:'Space Grotesk',system-ui,sans-serif;
+  --body:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  font-family:var(--body);color:var(--ink);background:var(--paper);
+  -webkit-font-smoothing:antialiased;overflow:hidden;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+
+/* ---------- topo ---------- */
+header{
+  position:relative;z-index:5;background:var(--card);
+  border-bottom:1px solid var(--edge);
+  padding:10px 16px 0;
+}
+.head-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{
+  font-family:var(--display);font-size:19px;font-weight:700;
+  letter-spacing:-.02em;margin:0;
+}
+.sub{font-size:12.5px;color:var(--ink-3);font-family:var(--mono);letter-spacing:.02em}
+.spacer{flex:1}
+
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 0 0}
+.search{position:relative;flex:1;min-width:170px;max-width:280px}
+.search input{
+  width:100%;font:inherit;font-size:13.5px;padding:7px 30px 7px 11px;
+  border:1px solid var(--edge);border-radius:8px;background:#F6F8FB;color:var(--ink);
+}
+.search input:focus{outline:2px solid var(--c0);outline-offset:-1px;background:#fff}
+.search .hits{
+  position:absolute;right:9px;top:50%;transform:translateY(-50%);
+  font-family:var(--mono);font-size:11px;color:var(--ink-3);pointer-events:none;
+}
+.btn{
+  border:1px solid var(--edge);background:#fff;border-radius:8px;
+  padding:7px 11px;font-size:12.5px;font-weight:500;color:var(--ink-2);
+  transition:background .15s,border-color .15s,color .15s;
+}
+.btn:hover{background:#F2F5F9;color:var(--ink)}
+.btn:active{transform:translateY(1px)}
+.btn.icon{padding:7px 10px;font-family:var(--mono);min-width:34px}
+.seg{display:flex;border:1px solid var(--edge);border-radius:8px;overflow:hidden;background:#fff}
+.seg button{border:0;background:transparent;padding:7px 10px;font-size:12.5px;color:var(--ink-2);border-left:1px solid var(--edge)}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff}
+.seg-label{font-family:var(--mono);font-size:11px;color:var(--ink-3);align-self:center;padding-right:2px;text-transform:uppercase;letter-spacing:.06em}
+
+/* trilhas */
+.rails{display:flex;gap:6px;overflow-x:auto;padding:10px 0;scrollbar-width:none}
+.rails::-webkit-scrollbar{display:none}
+.rail{
+  flex:0 0 auto;border:1px solid var(--edge);background:#fff;border-radius:999px;
+  padding:5px 12px 5px 9px;font-size:12.5px;color:var(--ink-2);white-space:nowrap;
+  display:flex;align-items:center;gap:7px;
+}
+.rail:hover{border-color:var(--rc);color:var(--ink)}
+.rail[aria-pressed="true"]{background:var(--rc);border-color:var(--rc);color:#fff}
+.rail .dot{width:7px;height:7px;border-radius:50%;background:var(--rc);flex:0 0 auto}
+.rail[aria-pressed="true"] .dot{background:#fff}
+
+/* ---------- área do mapa ---------- */
+main{position:absolute;inset:0;top:var(--head-h,128px);display:flex}
+#viewport{
+  flex:1;position:relative;overflow:hidden;cursor:grab;
+  background:
+    linear-gradient(var(--grid) 1px,transparent 1px) 0 0/22px 22px,
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/22px 22px,
+    linear-gradient(var(--grid-strong) 1px,transparent 1px) 0 0/110px 110px,
+    linear-gradient(90deg,var(--grid-strong) 1px,transparent 1px) 0 0/110px 110px,
+    var(--paper);
+  touch-action:none;
+}
+#viewport.grabbing{cursor:grabbing}
+#stage{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+#links{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
+#links path{fill:none;stroke-linecap:round}
+
+.node{
+  position:absolute;top:0;left:0;
+  display:flex;align-items:center;gap:8px;
+  padding:0 12px;height:36px;border-radius:9px;
+  background:var(--card);border:1px solid var(--edge);
+  box-shadow:var(--shadow);white-space:nowrap;
+  font-size:13.5px;color:var(--ink);
+  border-left:3px solid var(--nc,var(--line));
+  transition:box-shadow .15s,border-color .15s,background .15s;
+}
+.node:hover{box-shadow:0 2px 4px rgba(19,26,36,.08),0 10px 24px rgba(19,26,36,.10)}
+.node:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.node .lbl{overflow:hidden;text-overflow:ellipsis}
+.node .cnt{
+  font-family:var(--mono);font-size:10.5px;line-height:1;
+  color:var(--nc,var(--ink-3));background:color-mix(in srgb,var(--nc,#8A97AB) 10%,#fff);
+  border-radius:999px;padding:3px 6px;
+}
+.node.open .cnt{background:transparent;color:var(--ink-3)}
+.node.is-root{
+  height:48px;font-family:var(--display);font-weight:700;font-size:16px;
+  letter-spacing:-.01em;background:var(--ink);color:#fff;border-color:var(--ink);
+  border-left-width:1px;padding:0 18px;
+}
+.node.is-root .cnt{background:rgba(255,255,255,.14);color:#fff}
+.node.d1{font-family:var(--display);font-weight:600;font-size:14px;height:40px}
+.node.sel{border-color:var(--nc,var(--ink));box-shadow:0 0 0 3px color-mix(in srgb,var(--nc,#131A24) 18%,transparent),var(--shadow)}
+.node.is-root.sel{box-shadow:0 0 0 3px rgba(19,26,36,.18),var(--shadow)}
+.node.dim{opacity:.32}
+.node.hit{background:#FFF8E1;border-color:#E9B949}
+.node.done .lbl::after{content:" ✓";color:var(--c1);font-weight:600}
+
+/* ---------- painel ---------- */
+aside{
+  width:340px;flex:0 0 340px;background:var(--card);border-left:1px solid var(--edge);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.panel-in{padding:20px;overflow-y:auto;flex:1}
+.crumb{font-family:var(--mono);font-size:11px;color:var(--ink-3);line-height:1.7;margin-bottom:10px;word-break:break-word}
+.crumb b{color:var(--pc,var(--ink-2));font-weight:500}
+.panel h2{
+  font-family:var(--display);font-size:21px;line-height:1.2;letter-spacing:-.02em;
+  margin:0 0 4px;padding-bottom:12px;border-bottom:2px solid var(--pc,var(--ink));
+}
+.panel p{font-size:14px;line-height:1.6;color:var(--ink-2);margin:14px 0 0}
+.panel .ex{
+  margin-top:14px;padding:11px 13px;border-radius:9px;background:#F5F8FB;
+  border-left:3px solid var(--pc,var(--line));font-size:13px;line-height:1.55;color:var(--ink-2);
+}
+.panel .ex b{display:block;font-family:var(--mono);font-size:10px;text-transform:uppercase;
+  letter-spacing:.08em;color:var(--ink-3);margin-bottom:5px;font-weight:500}
+.kids{margin-top:18px}
+.kids h3{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--ink-3);font-weight:500;margin:0 0 9px}
+.kids .k{
+  display:block;width:100%;text-align:left;border:1px solid var(--edge);background:#fff;
+  border-radius:8px;padding:8px 11px;font-size:13px;margin-bottom:6px;color:var(--ink-2);
+}
+.kids .k:hover{border-color:var(--pc,var(--line));color:var(--ink);background:#FAFCFE}
+.panel-foot{border-top:1px solid var(--edge);padding:12px 20px;display:flex;gap:8px;align-items:center}
+.empty{color:var(--ink-3);font-size:13.5px;line-height:1.6}
+
+.legend{
+  position:absolute;left:14px;bottom:12px;font-family:var(--mono);font-size:10.5px;
+  color:var(--ink-3);background:rgba(251,252,253,.9);border:1px solid var(--edge);
+  border-radius:7px;padding:5px 9px;pointer-events:none;
+}
+.zoom{position:absolute;right:14px;bottom:12px;display:flex;gap:6px}
+.zoom .btn{background:rgba(255,255,255,.94);backdrop-filter:blur(4px)}
+
+@media (max-width:860px){
+  main{flex-direction:column}
+  aside{width:auto;flex:0 0 44%;border-left:0;border-top:1px solid var(--edge)}
+  .panel-in{padding:16px}
+  .panel h2{font-size:18px}
+  .legend{display:none}
+  h1{font-size:16px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header id="head">
+  <div class="head-row">
+    <h1>Inteligência Artificial</h1>
+    <span class="sub">divisões, áreas, técnicas e aplicações</span>
+  </div>
+  <div class="tools">
+    <div class="search">
+      <input id="q" type="search" placeholder="Buscar no mapa…" autocomplete="off" aria-label="Buscar no mapa">
+      <span class="hits" id="hits"></span>
+    </div>
+    <div class="seg" role="group" aria-label="Nível de detalhe">
+      <span class="seg-label" style="padding:0 8px">nível</span>
+      <button data-lvl="1">1</button>
+      <button data-lvl="2">2</button>
+      <button data-lvl="3">3</button>
+      <button data-lvl="99">tudo</button>
+    </div>
+    <button class="btn" id="fit">Ajustar à tela</button>
+    <span class="spacer"></span>
+    <span class="sub" id="progress" aria-live="polite"></span>
+  </div>
+  <div class="rails" id="rails"></div>
+</header>
+
+<main>
+  <div id="viewport">
+    <div id="stage">
+      <svg id="links"></svg>
+    </div>
+    <div class="legend">arraste para mover · role para dar zoom · clique no nó para abrir</div>
+    <div class="zoom">
+      <button class="btn icon" id="zout" aria-label="Diminuir zoom">−</button>
+      <button class="btn icon" id="zin" aria-label="Aumentar zoom">+</button>
+    </div>
+  </div>
+  <aside>
+    <div class="panel panel-in" id="panel">
+      <p class="empty">Clique em qualquer nó do mapa para ver a explicação aqui.<br><br>Os nós com um número à direita têm subtópicos escondidos — clicar abre e fecha o ramo.</p>
+    </div>
+    <div class="panel-foot">
+      <button class="btn" id="mark" hidden>Marcar como revisado</button>
+      <button class="btn" id="focus" hidden>Centralizar</button>
+    </div>
+  </aside>
+</main>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════
+   CONTEÚDO DO MAPA — edite só daqui até a linha FIM DO CONTEÚDO.
+
+   Cada item aceita 4 campos:
+     nome   → texto que aparece no nó            (obrigatório)
+     desc   → explicação mostrada no painel
+     ex     → exemplo / observação (caixa cinza)
+     filhos → lista de subtópicos, mesma estrutura
+
+   Para adicionar um tópico novo, copie um bloco { ... } inteiro,
+   cole depois de uma vírgula e troque os textos. Cuide para que
+   toda chave e todo texto fiquem entre "aspas duplas".
+   ══════════════════════════════════════════════════════════════════ */
+
+const MAPA = {
+  "nome": "Inteligência Artificial",
+  "desc": "Área da Computação dedicada a criar sistemas capazes de executar tarefas que normalmente exigem capacidades associadas à inteligência humana: perceber, aprender, raciocinar, resolver problemas, compreender linguagem, reconhecer padrões, planejar e decidir.",
+  "ex": "A IA não é uma única tecnologia: é um grande campo que reúne várias abordagens. Machine Learning é uma das principais formas modernas de construir IA, mas não é toda a IA.",
+  "filhos": [
+    {
+      "nome": "Classificação por capacidade",
+      "desc": "Divide a IA pelo alcance da inteligência do sistema em relação à humana.",
+      "filhos": [
+        {
+          "nome": "ANI — IA Estreita",
+          "desc": "Especializada em uma tarefa ou conjunto limitado de tarefas. É a forma de IA que predomina atualmente.",
+          "ex": "Recomendação, reconhecimento facial, filtro de spam, assistentes virtuais, classificadores."
+        },
+        {
+          "nome": "AGI — IA Geral",
+          "desc": "Conceito de IA capaz de aprender, raciocinar e executar ampla variedade de tarefas intelectuais com flexibilidade comparável à humana.",
+          "ex": "Continua sendo objetivo de pesquisa. Não confundir com IA especializada."
+        },
+        {
+          "nome": "ASI — Superinteligência",
+          "desc": "Hipótese de sistemas que ultrapassariam significativamente as capacidades humanas em praticamente todas as áreas intelectuais.",
+          "ex": "Conceito especulativo, não é tecnologia disponível."
+        }
+      ]
+    },
+    {
+      "nome": "Classificação por funcionamento",
+      "desc": "Divide a IA pela forma como o sistema processa informação e memória.",
+      "filhos": [
+        {
+          "nome": "Máquinas Reativas",
+          "desc": "Respondem à situação atual sem manter memória ampla de experiências anteriores.",
+          "ex": "Sistemas simples de jogos."
+        },
+        {
+          "nome": "Memória Limitada",
+          "desc": "Usam informações passadas ou dados históricos para produzir decisões e previsões.",
+          "ex": "Veículos autônomos e muitos modelos de ML."
+        },
+        {
+          "nome": "Teoria da Mente",
+          "desc": "Conceito de IA capaz de compreender estados mentais, intenções e emoções de outros agentes.",
+          "ex": "Ainda é principalmente linha de pesquisa."
+        },
+        {
+          "nome": "Autoconsciência",
+          "desc": "Hipótese de IA com consciência ou percepção de si própria.",
+          "ex": "Não existe comprovação de sistemas desse tipo."
+        }
+      ]
+    },
+    {
+      "nome": "IA Simbólica",
+      "desc": "Representa conhecimento explicitamente por meio de símbolos, regras, lógica e estruturas de conhecimento. Em vez de depender só de grandes volumes de dados, usa regras definidas por especialistas.",
+      "ex": "É a IA clássica. Palavra-chave: regras + lógica + conhecimento.",
+      "filhos": [
+        {
+          "nome": "Sistemas especialistas",
+          "desc": "Usam regras do tipo SE... ENTÃO para apoiar decisões."
+        },
+        {
+          "nome": "Lógica computacional",
+          "desc": "Usa princípios formais para representar e inferir conhecimento."
+        },
+        {
+          "nome": "Sistemas baseados em regras",
+          "desc": "Aplicam conjuntos de regras para resolver problemas."
+        },
+        {
+          "nome": "Ontologias",
+          "desc": "Representam conceitos, propriedades e relações de um domínio."
+        },
+        {
+          "nome": "Busca e planejamento",
+          "desc": "Exploram estados e ações possíveis para encontrar soluções."
+        }
+      ]
+    },
+    {
+      "nome": "Machine Learning",
+      "desc": "Subárea da IA em que algoritmos aprendem padrões a partir de dados para fazer previsões, classificações, agrupamentos ou decisões.",
+      "ex": "Alta dependência de dados. Exemplo: detector de fraude.",
+      "filhos": [
+        {
+          "nome": "Supervisionado",
+          "desc": "Aprende com dados rotulados.",
+          "ex": "Classificação e regressão."
+        },
+        {
+          "nome": "Não supervisionado",
+          "desc": "Aprende com dados sem rótulos.",
+          "ex": "Clustering e descoberta de padrões."
+        },
+        {
+          "nome": "Semi-supervisionado",
+          "desc": "Combina dados rotulados e não rotulados.",
+          "ex": "Classificação quando rotular dados é caro."
+        },
+        {
+          "nome": "Por reforço",
+          "desc": "Aprende por ações, recompensas e penalidades.",
+          "ex": "Jogos, controle e robótica."
+        }
+      ]
+    },
+    {
+      "nome": "Deep Learning",
+      "desc": "Área de Machine Learning baseada em redes neurais com múltiplas camadas, que aprendem representações complexas diretamente dos dados.",
+      "ex": "Geralmente requer muitos dados e muita computação.",
+      "filhos": [
+        {
+          "nome": "CNN",
+          "desc": "Excelente para dados com estrutura espacial, especialmente imagens.",
+          "ex": "Visão computacional."
+        },
+        {
+          "nome": "RNN",
+          "desc": "Projetada para lidar com sequências e dependências temporais.",
+          "ex": "Séries temporais e texto."
+        },
+        {
+          "nome": "LSTM / GRU",
+          "desc": "Variantes de redes recorrentes que lidam melhor com dependências de longo prazo.",
+          "ex": "Sequências e séries temporais."
+        },
+        {
+          "nome": "Transformers",
+          "desc": "Usam mecanismos de atenção para processar relações entre elementos de sequências.",
+          "ex": "LLMs, tradução, texto, visão e multimodalidade."
+        },
+        {
+          "nome": "Autoencoders",
+          "desc": "Aprendem representações compactas e reconstruções dos dados.",
+          "ex": "Redução de dimensionalidade e detecção de anomalias."
+        },
+        {
+          "nome": "GANs",
+          "desc": "Dois modelos competem para gerar dados sintéticos realistas.",
+          "ex": "Geração de imagens e dados."
+        }
+      ]
+    },
+    {
+      "nome": "IA Generativa",
+      "desc": "Conjunto de técnicas e modelos capazes de produzir novos conteúdos a partir de padrões aprendidos. Pode usar Transformers, modelos de difusão, GANs e outras abordagens.",
+      "filhos": [
+        {
+          "nome": "Texto",
+          "desc": "Geração, resumo, tradução, perguntas e respostas.",
+          "ex": "Modelos de linguagem."
+        },
+        {
+          "nome": "Imagem",
+          "desc": "Criação e transformação de imagens.",
+          "ex": "Modelos de difusão."
+        },
+        {
+          "nome": "Áudio",
+          "desc": "Geração e transformação de fala, música e sons.",
+          "ex": "Modelos generativos de áudio."
+        },
+        {
+          "nome": "Vídeo",
+          "desc": "Geração e edição de sequências audiovisuais.",
+          "ex": "Modelos generativos de vídeo."
+        },
+        {
+          "nome": "Código",
+          "desc": "Geração, explicação, transformação e auxílio na programação.",
+          "ex": "Modelos de linguagem especializados ou generalistas."
+        },
+        {
+          "nome": "Multimodal",
+          "desc": "Processa e/ou gera diferentes modalidades em conjunto.",
+          "ex": "Texto + imagem + áudio."
+        }
+      ]
+    },
+    {
+      "nome": "PLN — Linguagem Natural",
+      "desc": "Área da IA dedicada à interação entre computadores e linguagem humana: compreensão, análise, geração e transformação de texto e fala.",
+      "filhos": [
+        {
+          "nome": "Classificação de textos e sentimentos",
+          "desc": "Atribui categorias ou polaridade emocional a um texto."
+        },
+        {
+          "nome": "Tradução automática",
+          "desc": "Converte texto ou fala de um idioma para outro."
+        },
+        {
+          "nome": "Resumo automático",
+          "desc": "Condensa um texto preservando as informações principais."
+        },
+        {
+          "nome": "Perguntas e respostas",
+          "desc": "Responde perguntas a partir de textos ou bases de conhecimento."
+        },
+        {
+          "nome": "Chatbots e assistentes",
+          "desc": "Sistemas de diálogo que interagem em linguagem natural."
+        },
+        {
+          "nome": "Reconhecimento e síntese de fala",
+          "desc": "Converte fala em texto e texto em fala."
+        },
+        {
+          "nome": "Extração de entidades",
+          "desc": "Identifica nomes, datas, locais e outras informações dentro do texto."
+        }
+      ]
+    },
+    {
+      "nome": "Visão Computacional",
+      "desc": "Permite que sistemas analisem imagens e vídeos para identificar objetos, padrões, regiões, movimentos e características.",
+      "filhos": [
+        {
+          "nome": "Classificação de imagens",
+          "desc": "Determina a classe ou categoria de uma imagem."
+        },
+        {
+          "nome": "Detecção de objetos",
+          "desc": "Localiza e classifica objetos dentro de uma imagem."
+        },
+        {
+          "nome": "Segmentação",
+          "desc": "Separa uma imagem em regiões ou objetos relevantes."
+        },
+        {
+          "nome": "Reconhecimento facial",
+          "desc": "Identifica ou verifica características faciais."
+        },
+        {
+          "nome": "OCR",
+          "desc": "Extrai texto presente em imagens."
+        },
+        {
+          "nome": "Análise de vídeo",
+          "desc": "Analisa objetos, eventos e movimentos ao longo do tempo."
+        }
+      ]
+    },
+    {
+      "nome": "Robótica Inteligente",
+      "desc": "Combina IA, sensores, controle, percepção e atuadores para que máquinas físicas percebam o ambiente, decidam e ajam.",
+      "filhos": [
+        {
+          "nome": "Percepção",
+          "desc": "Coleta informações por câmeras, sensores e outros dispositivos."
+        },
+        {
+          "nome": "Localização e mapeamento",
+          "desc": "Estima onde o robô está e representa o ambiente."
+        },
+        {
+          "nome": "Planejamento",
+          "desc": "Escolhe caminhos e ações."
+        },
+        {
+          "nome": "Controle",
+          "desc": "Transforma decisões em movimentos."
+        },
+        {
+          "nome": "Aprendizado",
+          "desc": "Melhora o comportamento com dados e experiência."
+        }
+      ]
+    },
+    {
+      "nome": "Sistemas Multiagentes",
+      "desc": "Ambientes em que múltiplos agentes autônomos interagem, cooperando ou competindo para atingir objetivos. Cada agente percebe o ambiente, decide e age.",
+      "ex": "Simulação e coordenação."
+    },
+    {
+      "nome": "Áreas relacionadas",
+      "desc": "Campos que sustentam ou se cruzam com a IA.",
+      "filhos": [
+        {
+          "nome": "Representação do conhecimento",
+          "desc": "Como representar fatos, conceitos, relações e regras para que a máquina possa usá-los."
+        },
+        {
+          "nome": "Raciocínio automatizado",
+          "desc": "Uso de lógica e inferência para obter conclusões."
+        },
+        {
+          "nome": "Busca e planejamento",
+          "desc": "Exploração de possibilidades e definição de sequências de ações."
+        },
+        {
+          "nome": "Otimização",
+          "desc": "Busca por soluções melhores de acordo com uma função objetivo."
+        },
+        {
+          "nome": "Aprendizado por transferência",
+          "desc": "Reutilização de conhecimento aprendido em uma tarefa para outra relacionada."
+        },
+        {
+          "nome": "Sistemas de recomendação",
+          "desc": "Sugestão de itens com base em comportamento, características ou preferências."
+        },
+        {
+          "nome": "Detecção de anomalias",
+          "desc": "Identificação de comportamentos ou dados que fogem do padrão esperado."
+        },
+        {
+          "nome": "Computação evolutiva",
+          "desc": "Otimização inspirada em processos evolutivos: seleção, mutação e recombinação."
+        }
+      ]
+    },
+    {
+      "nome": "Aplicações",
+      "desc": "Onde a IA aparece na prática.",
+      "filhos": [
+        {
+          "nome": "Saúde",
+          "desc": "Apoio ao diagnóstico, análise de imagens, descoberta de medicamentos e monitoramento."
+        },
+        {
+          "nome": "Finanças",
+          "desc": "Detecção de fraude, análise de risco e previsão."
+        },
+        {
+          "nome": "Educação",
+          "desc": "Tutores inteligentes, personalização e análise de aprendizagem."
+        },
+        {
+          "nome": "Indústria",
+          "desc": "Manutenção preditiva, inspeção visual e automação."
+        },
+        {
+          "nome": "Agronegócio",
+          "desc": "Análise de imagens, previsão de produtividade e monitoramento."
+        },
+        {
+          "nome": "Comércio",
+          "desc": "Recomendação, previsão de demanda e atendimento automatizado."
+        },
+        {
+          "nome": "Segurança",
+          "desc": "Análise de padrões e detecção de anomalias."
+        },
+        {
+          "nome": "Transporte",
+          "desc": "Rotas, previsão de demanda e sistemas autônomos."
+        },
+        {
+          "nome": "Entretenimento",
+          "desc": "Recomendação e geração de conteúdo."
+        },
+        {
+          "nome": "Desenvolvimento de software",
+          "desc": "Geração, análise e teste de código."
+        }
+      ]
+    },
+    {
+      "nome": "Conceitos importantes",
+      "desc": "Vocabulário básico que aparece em qualquer prova ou texto de IA.",
+      "filhos": [
+        {
+          "nome": "Dado",
+          "desc": "Informação utilizada pelo sistema."
+        },
+        {
+          "nome": "Feature",
+          "desc": "Característica ou variável usada para representar um exemplo."
+        },
+        {
+          "nome": "Label",
+          "desc": "Resposta conhecida associada a um exemplo."
+        },
+        {
+          "nome": "Modelo",
+          "desc": "Estrutura aprendida ou construída para resolver uma tarefa."
+        },
+        {
+          "nome": "Algoritmo",
+          "desc": "Procedimento usado para solucionar um problema ou aprender com dados."
+        },
+        {
+          "nome": "Treinamento",
+          "desc": "Processo de ajuste de um modelo usando dados."
+        },
+        {
+          "nome": "Inferência",
+          "desc": "Uso do modelo treinado para produzir uma saída."
+        },
+        {
+          "nome": "Hiperparâmetro",
+          "desc": "Configuração definida pelo desenvolvedor ou pesquisador."
+        },
+        {
+          "nome": "Overfitting",
+          "desc": "O modelo se adapta demais aos dados de treinamento e generaliza mal."
+        },
+        {
+          "nome": "Underfitting",
+          "desc": "O modelo não captura adequadamente os padrões dos dados."
+        },
+        {
+          "nome": "Generalização",
+          "desc": "Capacidade de funcionar bem em dados novos."
+        }
+      ]
+    },
+    {
+      "nome": "Ética, riscos e responsabilidade",
+      "desc": "O desenvolvimento de IA exige atenção a aspectos técnicos, sociais, legais e éticos. Uma IA pode reproduzir ou ampliar problemas já existentes nos dados usados para treiná-la.",
+      "filhos": [
+        {
+          "nome": "Privacidade e uso dos dados",
+          "desc": "Uso responsável e protegido das informações das pessoas."
+        },
+        {
+          "nome": "Segurança",
+          "desc": "Proteção do sistema contra falhas e usos indevidos."
+        },
+        {
+          "nome": "Vieses",
+          "desc": "Distorções herdadas dos dados que geram resultados injustos."
+        },
+        {
+          "nome": "Transparência e explicabilidade",
+          "desc": "Capacidade de entender e justificar como o sistema chegou a um resultado."
+        },
+        {
+          "nome": "Propriedade intelectual",
+          "desc": "Questões de autoria e direitos sobre dados e conteúdos gerados."
+        },
+        {
+          "nome": "Confiabilidade e supervisão humana",
+          "desc": "Manter pessoas acompanhando e validando decisões automatizadas."
+        }
+      ]
+    }
+  ]
+};
+
+/* ═══════════════════════ FIM DO CONTEÚDO ═════════════════════════ */
+
+
+/* --------- modelo --------- */
+const PALETA = ['--c0','--c1','--c2','--c3','--c4','--c5','--c6','--c7'];
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const nodes = new Map();
+let seq = 0;
+
+(function build(item, parent, depth, branch){
+  const id = 'n' + (seq++);
+  const cor = depth === 0 ? css('--ink')
+            : css(PALETA[(branch ?? 0) % PALETA.length]);
+  const n = { id, nome:item.nome, desc:item.desc||'', ex:item.ex||'',
+              depth, parent, cor, kids:[], w:0, done:false };
+  nodes.set(id, n);
+  if (parent) parent.kids.push(n);
+  (item.filhos||[]).forEach((f,i)=>build(f, n, depth+1, depth===0 ? i : branch));
+  return n;
+})(MAPA, null, 0, null);
+
+const raiz = nodes.get('n0');
+const aberto = new Set([raiz.id]);
+raiz.kids.forEach(k => k.branch = true);
+
+/* --------- medição de largura --------- */
+const mc = document.createElement('canvas').getContext('2d');
+function medir(){
+  for (const n of nodes.values()){
+    const f = n.depth===0 ? '700 16px "Space Grotesk",sans-serif'
+            : n.depth===1 ? '600 14px "Space Grotesk",sans-serif'
+            : '400 13.5px "IBM Plex Sans",sans-serif';
+    mc.font = f;
+    const pad = n.depth===0 ? 40 : 30;
+    const badge = n.kids.length ? 30 : 0;
+    n.w = Math.max(112, Math.min(280, Math.ceil(mc.measureText(n.nome).width) + pad + badge));
+  }
+}
+medir();
+
+/* --------- layout --------- */
+const ROW = 44, GAP = 52;
+let alvo = new Map(), atual = new Map(), colX = [];
+
+function visiveis(){
+  const out = [];
+  (function walk(n){ out.push(n); if (aberto.has(n.id)) n.kids.forEach(walk); })(raiz);
+  return out;
+}
+
+function layout(){
+  const vis = visiveis();
+  colX = [];
+  let x = 0, d = 0;
+  while (true){
+    const col = vis.filter(n => n.depth === d);
+    if (!col.length) break;
+    colX[d] = x;
+    x += Math.max(...col.map(n => n.w)) + GAP;
+    d++;
+  }
+  let slot = 0;
+  const pos = new Map();
+  (function place(n){
+    const abre = aberto.has(n.id) && n.kids.length;
+    if (!abre){ pos.set(n.id, { x: colX[n.depth], y: slot * ROW }); slot++; return; }
+    n.kids.forEach(place);
+    const ys = n.kids.map(k => pos.get(k.id).y);
+    pos.set(n.id, { x: colX[n.depth], y: (Math.min(...ys) + Math.max(...ys)) / 2 });
+  })(raiz);
+  return pos;
+}
+
+/* --------- DOM --------- */
+const stage = document.getElementById('stage');
+const svg = document.getElementById('links');
+const viewport = document.getElementById('viewport');
+const els = new Map();
+let saindo = [];
+
+function altura(n){ return n.depth===0 ? 48 : n.depth===1 ? 40 : 36; }
+
+function criar(n){
+  const el = document.createElement('button');
+  el.className = 'node' + (n.depth===0?' is-root':n.depth===1?' d1':'');
+  el.style.setProperty('--nc', n.cor);
+  el.style.width = n.w + 'px';
+  el.style.height = altura(n) + 'px';
+  el.innerHTML = '<span class="lbl"></span>' + (n.kids.length ? '<span class="cnt"></span>' : '');
+  el.querySelector('.lbl').textContent = n.nome;
+  el.dataset.id = n.id;
+  el.addEventListener('click', () => { selecionar(n); if (n.kids.length) alternar(n); });
+  stage.appendChild(el);
+  els.set(n.id, el);
+  return el;
+}
+
+function pintar(){
+  for (const n of nodes.values()){
+    const el = els.get(n.id); if (!el) continue;
+    const abre = aberto.has(n.id);
+    el.classList.toggle('open', abre);
+    el.classList.toggle('sel', sel === n.id);
+    el.classList.toggle('done', n.done);
+    const c = el.querySelector('.cnt');
+    if (c) c.textContent = abre ? '−' : n.kids.length;
+  }
+}
+
+let entrando = new Set();
+
+function render(anim = true){
+  limparSaidas();
+  const novo = layout();
+  const antes = new Map(atual);
+
+  entrando = new Set();
+  for (const [id, p] of novo){
+    const n = nodes.get(id);
+    if (!els.has(id)) criar(n);
+    if (!antes.has(id)){
+      let a = n.parent && antes.get(n.parent.id);
+      atual.set(id, a ? { ...a } : { ...p });
+      els.get(id).style.opacity = '0';
+      entrando.add(id);
+    }
+  }
+  saindo = [];
+  for (const id of [...atual.keys()]){
+    if (novo.has(id)) continue;
+    const n = nodes.get(id);
+    let anc = n.parent;
+    while (anc && !novo.has(anc.id)) anc = anc.parent;
+    saindo.push({ id, to: anc ? novo.get(anc.id) : novo.get(raiz.id) });
+  }
+  alvo = novo;
+  pintar();
+  animar(anim ? 300 : 0);
+  ajustarTamanho(novo);
+}
+
+function ajustarTamanho(pos){
+  let w = 0, h = 0;
+  for (const [id, p] of pos){ w = Math.max(w, p.x + nodes.get(id).w); h = Math.max(h, p.y); }
+  stage.style.width = (w + 40) + 'px';
+  stage.style.height = (h + 80) + 'px';
+  svg.setAttribute('width', w + 40); svg.setAttribute('height', h + 80);
+}
+
+const reduz = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let raf = null;
+
+function limparSaidas(){
+  for (const s of saindo){
+    const el = els.get(s.id);
+    if (el){ el.remove(); els.delete(s.id); }
+    atual.delete(s.id);
+  }
+  saindo = [];
+}
+function opacidadeBase(el){ return el.classList.contains('dim') ? 0.32 : 1; }
+
+function animar(dur){
+  if (reduz) dur = 0;
+  const de = new Map(); for (const [k,v] of atual) de.set(k, {...v});
+  const t0 = performance.now();
+  cancelAnimationFrame(raf);
+  const passo = () => {
+    const t = dur ? Math.min(1, (performance.now()-t0)/dur) : 1;
+    const e = 1 - Math.pow(1-t, 3);
+    for (const [id, p] of alvo){
+      const a = de.get(id) || p;
+      atual.set(id, { x: a.x + (p.x-a.x)*e, y: a.y + (p.y-a.y)*e });
+      const el = els.get(id);
+      el.style.opacity = String(opacidadeBase(el) * (entrando.has(id) ? e : 1));
+      const q = atual.get(id);
+      el.style.transform = `translate(${q.x}px, ${q.y - altura(nodes.get(id))/2 + 40}px)`;
+    }
+    for (const s of saindo){
+      const el = els.get(s.id); if (!el) continue;
+      const a = de.get(s.id) || s.to;
+      const x = a.x + (s.to.x-a.x)*e, y = a.y + (s.to.y-a.y)*e;
+      el.style.transform = `translate(${x}px, ${y - altura(nodes.get(s.id))/2 + 40}px)`;
+      el.style.opacity = String(1-e);
+    }
+    ligacoes();
+    if (t < 1) raf = requestAnimationFrame(passo);
+    else { entrando = new Set(); limparSaidas(); ligacoes(); }
+  };
+  raf = requestAnimationFrame(passo);
+}
+
+function aplicarOpacidades(){
+  els.forEach(el => { el.style.opacity = String(opacidadeBase(el)); });
+}
+
+function ligacoes(){
+  let d = '';
+  const partes = [];
+  for (const [id, p] of alvo){
+    const n = nodes.get(id);
+    if (!n.parent) continue;
+    const a = atual.get(n.parent.id), b = atual.get(id);
+    if (!a || !b) continue;
+    const x1 = a.x + n.parent.w, y1 = a.y + 40, x2 = b.x, y2 = b.y + 40;
+    const mx = x1 + (x2-x1)/2;
+    partes.push({ d:`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`,
+                  c:n.cor, w: Math.max(1, 2.4 - n.depth*0.5) });
+  }
+  svg.innerHTML = partes.map(p =>
+    `<path d="${p.d}" stroke="${p.c}" stroke-width="${p.w}" opacity="${p.w>1.6?0.55:0.4}"/>`).join('');
+}
+
+/* --------- interações --------- */
+let sel = null;
+
+function alternar(n){
+  if (!n.kids.length) return;
+  if (aberto.has(n.id)) fechar(n); else aberto.add(n.id);
+  render();
+}
+function fechar(n){ aberto.delete(n.id); n.kids.forEach(fechar); }
+function abrirCaminho(n){ let p = n.parent; while (p){ aberto.add(p.id); p = p.parent; } }
+
+function selecionar(n){
+  sel = n.id;
+  abrirCaminho(n);
+  painel(n);
+  pintar();
+}
+
+const panel = document.getElementById('panel');
+const btnMark = document.getElementById('mark');
+const btnFocus = document.getElementById('focus');
+
+function painel(n){
+  const trilha = [];
+  let p = n.parent; while (p){ trilha.unshift(p.nome); p = p.parent; }
+  const cor = n.cor;
+  let html = '';
+  if (trilha.length) html += `<div class="crumb">${trilha.map(t=>`<b>${esc(t)}</b>`).join(' › ')}</div>`;
+  html += `<h2>${esc(n.nome)}</h2>`;
+  if (n.desc) html += `<p>${esc(n.desc)}</p>`;
+  if (n.ex) html += `<div class="ex"><b>exemplo / observação</b>${esc(n.ex)}</div>`;
+  if (n.kids.length){
+    html += `<div class="kids"><h3>${n.kids.length} subtópico${n.kids.length>1?'s':''}</h3>`;
+    html += n.kids.map(k=>`<button class="k" data-go="${k.id}">${esc(k.nome)}</button>`).join('');
+    html += `</div>`;
+  }
+  panel.style.setProperty('--pc', cor);
+  panel.innerHTML = html;
+  panel.querySelectorAll('[data-go]').forEach(b=>{
+    b.onclick = () => { const k = nodes.get(b.dataset.go); aberto.add(n.id); selecionar(k); render(); centralizar(k); };
+  });
+  btnMark.hidden = false; btnFocus.hidden = false;
+  btnMark.textContent = n.done ? 'Desmarcar' : 'Marcar como revisado';
+  btnMark.onclick = () => { n.done = !n.done; btnMark.textContent = n.done?'Desmarcar':'Marcar como revisado'; pintar(); progresso(); };
+  btnFocus.onclick = () => centralizar(n);
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function progresso(){
+  const t = [...nodes.values()].filter(n=>n.done).length;
+  document.getElementById('progress').textContent = t ? `${t} revisado${t>1?'s':''}` : '';
+}
+
+/* pan + zoom */
+let k = 1, tx = 24, ty = 20, drag = null;
+const pts = new Map();
+let pinch = null;
+function aplicar(){ stage.style.transform = `translate(${tx}px,${ty}px) scale(${k})`; }
+function centroPts(){
+  const a = [...pts.values()];
+  return { x:(a[0].x+a[1].x)/2, y:(a[0].y+a[1].y)/2, d:Math.hypot(a[0].x-a[1].x, a[0].y-a[1].y) };
+}
+viewport.addEventListener('pointerdown', e => {
+  if (e.target.closest('.node') || e.target.closest('.btn')) return;
+  pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  viewport.setPointerCapture(e.pointerId);
+  if (pts.size === 1){ drag = { x:e.clientX-tx, y:e.clientY-ty }; viewport.classList.add('grabbing'); }
+  else if (pts.size === 2){ drag = null; const c = centroPts(); pinch = { d:c.d, k, tx, ty, cx:c.x, cy:c.y }; }
+});
+viewport.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return;
+  pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  if (pts.size >= 2 && pinch){
+    const c = centroPts();
+    const r = viewport.getBoundingClientRect();
+    const nk = Math.min(1.8, Math.max(.22, pinch.k * (c.d / (pinch.d||1))));
+    const mx = pinch.cx - r.left, my = pinch.cy - r.top;
+    tx = mx - (mx - pinch.tx) * (nk/pinch.k) + (c.x - pinch.cx);
+    ty = my - (my - pinch.ty) * (nk/pinch.k) + (c.y - pinch.cy);
+    k = nk; aplicar();
+  } else if (drag){
+    tx = e.clientX-drag.x; ty = e.clientY-drag.y; aplicar();
+  }
+});
+['pointerup','pointercancel'].forEach(t=>viewport.addEventListener(t, e => {
+  pts.delete(e.pointerId);
+  if (pts.size < 2) pinch = null;
+  if (pts.size === 1){ const p = [...pts.values()][0]; drag = { x:p.x-tx, y:p.y-ty }; }
+  if (pts.size === 0){ drag = null; viewport.classList.remove('grabbing'); }
+}));
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = viewport.getBoundingClientRect();
+  const mx = e.clientX-r.left, my = e.clientY-r.top;
+  const nk = Math.min(1.8, Math.max(.22, k * Math.exp(-e.deltaY*0.0015)));
+  tx = mx - (mx-tx)*(nk/k); ty = my - (my-ty)*(nk/k); k = nk; aplicar();
+}, { passive:false });
+
+function zoom(f){
+  const r = viewport.getBoundingClientRect(), mx = r.width/2, my = r.height/2;
+  const nk = Math.min(1.8, Math.max(.22, k*f));
+  tx = mx-(mx-tx)*(nk/k); ty = my-(my-ty)*(nk/k); k = nk; aplicar();
+}
+document.getElementById('zin').onclick = ()=>zoom(1.25);
+document.getElementById('zout').onclick = ()=>zoom(.8);
+
+function ajustar(){
+  const r = viewport.getBoundingClientRect();
+  let w = 0, h = 0;
+  for (const [id,p] of alvo){ w = Math.max(w, p.x+nodes.get(id).w); h = Math.max(h, p.y+80); }
+  k = Math.min(1.15, Math.max(.22, Math.min((r.width-56)/(w||1), (r.height-56)/(h||1))));
+  tx = 28; ty = Math.max(20, (r.height - h*k)/2);
+  aplicar();
+}
+document.getElementById('fit').onclick = ajustar;
+
+function centralizar(n){
+  const p = alvo.get(n.id); if (!p) return;
+  const r = viewport.getBoundingClientRect();
+  tx = r.width/2 - (p.x + n.w/2)*k;
+  ty = r.height/2 - (p.y + 40)*k;
+  aplicar();
+}
+
+/* níveis */
+document.querySelectorAll('[data-lvl]').forEach(b=>{
+  b.onclick = () => {
+    const lv = +b.dataset.lvl;
+    aberto.clear();
+    (function w(n){ if (n.depth < lv && n.kids.length) aberto.add(n.id); n.kids.forEach(w); })(raiz);
+    aberto.add(raiz.id);
+    document.querySelectorAll('[data-lvl]').forEach(x=>x.setAttribute('aria-pressed', x===b));
+    render(); setTimeout(ajustar, 320);
+  };
+});
+
+/* trilhas */
+const rails = document.getElementById('rails');
+raiz.kids.forEach(n=>{
+  const b = document.createElement('button');
+  b.className = 'rail'; b.style.setProperty('--rc', n.cor);
+  b.innerHTML = `<span class="dot"></span>${esc(n.nome)}`;
+  b.onclick = () => {
+    const ja = aberto.has(n.id) && sel === n.id;
+    raiz.kids.forEach(o => { if (o !== n) fechar(o); });
+    if (!ja) aberto.add(n.id);
+    selecionar(n); render();
+    setTimeout(()=>centralizar(n), 320);
+    [...rails.children].forEach(c=>c.setAttribute('aria-pressed', c===b && !ja));
+  };
+  rails.appendChild(b);
+});
+
+/* busca */
+const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+document.getElementById('q').addEventListener('input', e=>{
+  const t = norm(e.target.value.trim());
+  const hits = document.getElementById('hits');
+  els.forEach(el=>el.classList.remove('hit','dim'));
+  if (t.length < 2){ hits.textContent=''; aplicarOpacidades(); return; }
+  const m = [...nodes.values()].filter(n => norm(n.nome+' '+n.desc+' '+n.ex).includes(t));
+  hits.textContent = m.length ? m.length : '0';
+  if (!m.length) return;
+  m.forEach(abrirCaminho);
+  render();
+  requestAnimationFrame(()=>{
+    const ids = new Set(m.map(n=>n.id));
+    els.forEach((el,id)=>{ el.classList.toggle('hit', ids.has(id)); el.classList.toggle('dim', !ids.has(id)); });
+    aplicarOpacidades();
+  });
+});
+
+/* altura do cabeçalho */
+function alturaHead(){
+  document.documentElement.style.setProperty('--head-h', document.getElementById('head').offsetHeight+'px');
+}
+addEventListener('resize', alturaHead);
+
+/* início */
+alturaHead();
+raiz.kids.forEach(n => aberto.add(n.id));
+render(false);
+selecionar(raiz);
+document.querySelector('[data-lvl="2"]').setAttribute('aria-pressed','true');
+setTimeout(()=>{ ajustar(); }, 60);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(()=>{ medir(); render(false); ajustar(); alturaHead(); });
+</script>
+</body>
+</html>
