@@ -78,7 +78,7 @@ repositorio-academico-5p-senac/
 
 ## Arquitetura da informação
 
-Este repositório é a atividade [Meu repositório acadêmico no GitHub](5-periodo/eletiva-4-gestao-da-informacao/04-repositorio-academico-no-github/README.md), da Eletiva IV – Gestão da Informação. A explicação de como apliquei classificação, taxonomia, metadados, navegação, encontrabilidade e relações entre conteúdos está em [docs/arquitetura-da-informacao.md](docs/arquitetura-da-informacao.md).
+Este repositório é a atividade [Meu repositório acadêmico no GitHub](5-periodo/eletiva-4-gestao-da-informacao/04-repositorio-academico-no-github/README.md), da Eletiva IV  Gestão da Informação. A explicação de como apliquei classificação, taxonomia, metadados, navegação, encontrabilidade e relações entre conteúdos está em [docs/arquitetura-da-informacao.md](docs/arquitetura-da-informacao.md).
 
 | Conceito | Resumo | Detalhes |
 |---|---|---|
